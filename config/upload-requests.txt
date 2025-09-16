@@ -1,0 +1,9 @@
+curl -X POST "http://localhost:8080/api/documents"   \
+    -H "Accept: application/json"   \
+    -F 'metadata={"Title":"My doc","IsActive":true,"Tags":["foo","bar"]};type=application/json'   \
+    -F "file=@/path/to/file.pdf;type=application/pdf"
+
+curl --location 'http://localhost:8080/api/Documents' \
+    -H 'Authorization: eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJMXzNCajJaYVRsTGpYajlmM2lTenluVWRJVWNFZVFpX1FYdUg1U1BBM1IwIn0.eyJleHAiOjE3NTgyNjU0ODgsImlhdCI6MTc1ODI2NTE4OCwianRpIjoiM2RmYmYzYWQtZGRkNy00ZGI0LTg3ZjItZDNlYjg5YWM3M2M0IiwiaXNzIjoiaHR0cDovL3Rhc2tib2FyZC1rZXljbG9hay1ib290OjgwODAvcmVhbG1zL1RvZG9SZWFsbSIsInN1YiI6Ijk5YWM3ZjZlLTkxMWYtNDg4OC04MjMxLTQ5NmViZTJlZDAzOSIsInR5cCI6IkJlYXJlciIsImF6cCI6Im15LWNsaWVudCIsInNpZCI6ImVkZjNmZDMyLWVmOTAtNDEyZC04YzlmLTI2OTEzYzBkYWZhYyIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiKiJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiVVNFUiJdfSwic2NvcGUiOiJwcm9maWxlIGVtYWlsIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJTaW1wbGUgVXNlciIsInByZWZlcnJlZF91c2VybmFtZSI6InRlc3R1c2VyIiwiZ2l2ZW5fbmFtZSI6IlNpbXBsZSIsImZhbWlseV9uYW1lIjoiVXNlciIsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSJ9.M9wDQKVVUjScFPJtxuWn2LsFED6w4a8tVluv5yZnrTLhKZZez6fYCD1Rn7lot4v5gXjC46iwLDQEKYP6WIPDFa_3G_1nE9XonxXzdyWIAzwV-UTq4TH5GWBTRxcsjJY3cZJrQkCCPfzW-dJalrnaUcmmRVL9z-bjC_InVT6UylGjHPZGnbbCz3n3MpZn6Cu42L7uNGT2m8ART0vOyF41voG1UYxbdZ4pXU66Ig7oESxQzfmBHliGbx_Jx-tRdPvLZB2EX9Vca36TnNnlRKRVlq2MUhfQfLEe_YKMULhQGOHCLnxTQAEMya9TBhMvB69o4mIjKU1NL_51YN_WG6YLSQ'
+    -F 'metadata="{\"Title\": \"Prova\", \"Tags\": [\"tag1\", \"tag2\"], \"MimeType\": \"application/yaml\"}";type=application/json'
+    -F 'file=@"docker-compose.yml"'

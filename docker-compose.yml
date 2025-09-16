@@ -1,0 +1,167 @@
+networks:
+  backend-network:
+    driver: bridge
+
+services:
+  taskboard-keycloak-db-boot:
+    image: postgres:15
+    container_name: taskboard-keycloak-db-boot
+    restart: always
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - keycloak-storage:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "keycloak", "-d", "keycloak", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+
+  taskboard-keycloak-boot:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: taskboard-keycloak-boot
+    restart: always
+    depends_on:
+      taskboard-keycloak-db-boot:
+        condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://taskboard-keycloak-db-boot/keycloak
+      KC_HOSTNAME: taskboard-keycloak-boot
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    command: [ "start-dev", "--import-realm", "--health-enabled=true" ]
+    volumes:
+      - ./config/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    networks:
+      - backend-network
+
+  taskboard-keycloak-health-boot:
+    image: curlimages/curl:8.10.1
+    container_name: taskboard-keycloak-health-boot
+    restart: always
+    networks:
+      - backend-network
+    depends_on:
+      - taskboard-keycloak-boot
+    command: [ "sh","-c","sleep infinity" ]
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://taskboard-keycloak-boot:9000/health/ready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 180s
+
+  taskboard-dropstack-mongo-boot:
+    image: mongo:7
+    container_name: taskboard-dropstack-mongo-boot
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_DB_NAME: ${MONGO_DB_NAME}
+      APP_DB_USER: ${MONGO_APP_USER}
+      APP_DB_PASSWORD: ${MONGO_APP_PASSWORD}
+    volumes:
+      - mongodb-data:/data/db
+      - ./config/mongo/initdb.d:/docker-entrypoint-initdb.d:ro
+    networks:
+      - backend-network
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok ? 0 : 1", "mongodb://localhost:27017/admin"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  taskboard-dropstack-minio-boot:
+    image: minio/minio:latest
+    container_name: taskboard-dropstack-minio-boot
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - backend-network
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Console
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  taskboard-dropstack-minio-setup-boot:
+    image: minio/mc:latest
+    container_name: taskboard-dropstack-minio-setup-boot
+    depends_on:
+      taskboard-dropstack-minio-boot:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+      MINIO_APP_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY}
+      MINIO_APP_SECRET_KEY: ${MINIO_APP_SECRET_KEY}
+    volumes:
+      - ./config/minio:/config:ro
+    entrypoint: [ "/bin/sh","-c","/config/bootstrap.sh" ]
+    networks:
+      - backend-network
+    restart: "no"
+
+  taskboard-dropstack-boot:
+    image: taskboard-dropstack-boot:latest
+    container_name: taskboard-dropstack-boot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      taskboard-keycloak-health-boot:
+        condition: service_healthy
+      taskboard-dropstack-mongo-boot:
+        condition: service_healthy
+      taskboard-dropstack-minio-boot:
+        condition: service_healthy
+      taskboard-dropstack-minio-setup-boot:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_APP_USER}:${MONGO_APP_PASSWORD}@taskboard-dropstack-mongo-boot:27017/${MONGO_DB_NAME}?authSource=${MONGO_DB_NAME}
+      MINIO_ENDPOINT: http://taskboard-dropstack-minio-boot:9000
+      MINIO_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_APP_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+      MINIO_REGION: ${MINIO_REGION:-eu-south-1}
+      MINIO_SECURE: "false"
+      # Multipart upload limits via Spring
+      # SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE: 50MB
+      # SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE: 100MB
+      KEYCLOAK_SERVER_URL: http://taskboard-keycloak-boot:8080
+    networks:
+      - backend-network
+    ports:
+      - "8080:8080"
+
+volumes:
+  keycloak-storage:
+  mongodb-data:
+  minio-data:

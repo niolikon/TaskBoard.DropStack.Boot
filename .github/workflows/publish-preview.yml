@@ -1,0 +1,140 @@
+name: Publish Preview
+
+on:
+  push:
+    tags:
+      - "*.*.*-rc.*"
+
+jobs:
+  publish-preview:
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Setup - Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup - Install JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup - Extract version from tag
+        id: extract_version
+        run: |
+          VERSION=${GITHUB_REF##*/}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Extracted version: $VERSION"
+
+      - name: Build - Compile & Run tests
+        run: mvn -B -ntp clean verify
+
+      - name: Build - Archive test reports (if any)
+        id: zip_reports
+        run: |
+          mkdir -p artifacts
+          set +e
+          copied=0
+          [ -d target/surefire-reports ] && cp -r target/surefire-reports artifacts/ && copied=1
+          [ -d target/failsafe-reports ] && cp -r target/failsafe-reports artifacts/ && copied=1
+          [ -d target/site/jacoco ] && cp -r target/site/jacoco artifacts/ && copied=1
+          if [ "$copied" = "1" ]; then
+            (cd artifacts && zip -r ../test-report.zip .)
+            echo "has_zip=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_zip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build - Locate JAR artifact
+        id: find_jar
+        run: |
+          JAR_PATH=$(find target -type f -name "*.jar" ! -name "original-*.jar" | head -n 1)
+          echo "JAR_PATH=$JAR_PATH" >> $GITHUB_ENV
+          if [ -n "$JAR_PATH" ]; then
+            echo "has_jar=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_jar=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Docker - Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker - Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker - Extract image name
+        id: extract_imagename
+        run: |
+          raw_repo="${{ github.repository }}"
+          NORMALIZED=$(echo "$raw_repo" | tr '[:upper:]' '[:lower:]' | tr '.' '-')
+          echo "REPOSITORY_NORMALIZED=$NORMALIZED" >> $GITHUB_ENV
+          echo "Extracted image name: $NORMALIZED"
+
+      - name: Docker - Build & Push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          no-cache: true
+          tags: |
+            ghcr.io/${{ env.REPOSITORY_NORMALIZED }}:${{ env.VERSION }}
+
+      - name: GitHub Release - Define asset list
+        id: assets
+        run: |
+          files=()
+          # Add JAR if has jar
+          if [ "${{ steps.find_jar.outputs.has_jar }}" = "true" ] && [ -n "${{ env.JAR_PATH }}" ]; then
+            files+=("${{ env.JAR_PATH }}")
+          fi
+
+          # Add test-report.zip if has zip
+          if [ "${{ steps.zip_reports.outputs.has_zip }}" = "true" ]; then
+            files+=("test-report.zip")
+          fi
+
+          # Export list as multiline output
+          if [ ${#files[@]} -gt 0 ]; then
+            echo "has_files=true" >> $GITHUB_OUTPUT
+            {
+              echo "files<<EOF"
+              printf "%s\n" "${files[@]}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          else
+            echo "has_files=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: GitHub Release - Create prerelease
+        if: steps.assets.outputs.has_files == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: PreRelease ${{ env.VERSION }}
+          draft: false
+          prerelease: true
+          make_latest: false
+          files: ${{ steps.assets.outputs.files }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: GitHub Release - Create prerelease (no asset)
+        if: steps.assets.outputs.has_files != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: PreRelease ${{ env.VERSION }}
+          draft: false
+          prerelease: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
