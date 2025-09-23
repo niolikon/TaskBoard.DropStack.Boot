@@ -9,7 +9,6 @@ import com.niolikon.taskboard.dropstack.storage.services.IS3StorageService;
 import com.niolikon.taskboard.framework.data.dto.PageResponse;
 import com.niolikon.taskboard.framework.exceptions.rest.client.EntityNotFoundRestException;
 import com.niolikon.taskboard.framework.exceptions.rest.server.InternalServerErrorRestException;
-import lombok.RequiredArgsConstructor;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -23,20 +22,27 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class DocumentService implements IDocumentService {
-    private static final String DOCUMENT_NOT_FOUND = "Could not find document";
-    private static final String DOCUMENT_NOT_UPDATED = "Could not update document";
-    private static final String DOCUMENT_NOT_UPLOADED_TO_BUCKET = "Could not upload document to bucket";
-    private static final String DOCUMENT_NOT_DELETED_FROM_BUCKET = "Could not delete document from bucket";
-    private static final String DOCUMENT_CONTENT_DEFAULT_TYPE = "application/octet-stream";
+    static final String DOCUMENT_NOT_FOUND = "Could not find document";
+    static final String DOCUMENT_NOT_UPDATED = "Could not update document";
+    static final String DOCUMENT_NOT_UPLOADED_TO_BUCKET = "Could not upload document to bucket";
+    static final String DOCUMENT_NOT_DELETED_FROM_BUCKET = "Could not delete document from bucket";
+    static final String DOCUMENT_CONTENT_DEFAULT_TYPE = "application/octet-stream";
 
     private final DocumentRepository documentRepository;
     private final DocumentMapper documentMapper;
     private final IS3StorageService storage;
+    private final String defaultBucket;
 
-    @Value("${minio.bucket:taskboard-dropstack-docs}")
-    private String defaultBucket;
+    public DocumentService(DocumentRepository documentRepository,
+                           DocumentMapper documentMapper,
+                           IS3StorageService storage,
+                           @Value("${minio.bucket:taskboard-dropstack-docs}") String defaultBucket) {
+        this.documentRepository = documentRepository;
+        this.documentMapper = documentMapper;
+        this.storage = storage;
+        this.defaultBucket = defaultBucket;
+    }
 
     @Override
     public DocumentReadDto create(String ownerUid, DocumentCreateMetadataDto metadata, DocumentCreateContentDto content) {
@@ -63,7 +69,7 @@ public class DocumentService implements IDocumentService {
         entity.setUpdatedAt(createdAndReadyInstant);
         entity.setOwnerUid(ownerUid);
 
-        statOpt.ifPresent(stat -> entity.setEtag(stat.etag()));
+        statOpt.ifPresent(stat -> entity.setEtag(stat.getEtag()));
 
         try {
             DocumentEntity saved = documentRepository.save(entity);
@@ -94,9 +100,9 @@ public class DocumentService implements IDocumentService {
 
         Optional<ObjectStat> statOpt = storage.stat(doc.getBucket(), doc.getObjectKey());
 
-        String contentType = statOpt.map(ObjectStat::contentType)
+        String contentType = statOpt.map(ObjectStat::getContentType)
                 .orElse(doc.getMimeType() != null ? doc.getMimeType() : DOCUMENT_CONTENT_DEFAULT_TYPE);
-        Long contentLength = statOpt.map(ObjectStat::size).orElse(null);
+        Long contentLength = statOpt.map(ObjectStat::getSize).orElse(null);
         String filename = (doc.getTitle() != null && !doc.getTitle().isBlank())
                 ? doc.getTitle()
                 : doc.getObjectKey();
