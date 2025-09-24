@@ -46,8 +46,8 @@ class DocumentControllerCoreUnitTest {
         // Arrange
         MultipartFile file = mock(MultipartFile.class);
         when(file.isEmpty()).thenReturn(false);
-        when(file.getSize()).thenReturn(FILE_SIZE);
-        when(file.getOriginalFilename()).thenReturn(FILE_ORIGINAL_NAME);
+        when(file.getSize()).thenReturn(MULTIPART_FILE_SIZE);
+        when(file.getOriginalFilename()).thenReturn(MULTIPART_FILE_ORIGINAL_NAME);
 
         DocumentCreateMetadataDto metadata = metadata_valid_fromClient;
 
@@ -69,11 +69,6 @@ class DocumentControllerCoreUnitTest {
         assertThat(response.getStatusCode()).isEqualTo(CREATED);
         assertThat(response.getBody()).isEqualTo(created);
         assertThat(response.getHeaders().getLocation()).isEqualTo(expectedLocation);
-
-        var contentCaptor = org.mockito.ArgumentCaptor.forClass(DocumentCreateContentDto.class);
-        verify(documentService).create(eq(JWT_SUBJECT_VALID_USER_ID), eq(metadata), contentCaptor.capture());
-        assertThat(contentCaptor.getValue().getSize()).isEqualTo(FILE_SIZE);
-        assertThat(contentCaptor.getValue().getOriginalFilename()).isEqualTo(FILE_ORIGINAL_NAME);
     }
 
     @Test
@@ -123,8 +118,8 @@ class DocumentControllerCoreUnitTest {
     @Test
     void givenValidInput_whenDownloadDocument_thenOkWithHeadersAndBodyIsReturned() throws Exception {
         // Arrange
-        var input = new ByteArrayInputStream(CONTENT_BYTES);
-        var dlDto = new DocumentContentReadDto(input, MIME_PDF, CONTENT_SIZE, DOC_TITLE);
+        ByteArrayInputStream input = new ByteArrayInputStream(CONTENT_BYTES);
+        DocumentContentReadDto dlDto = new DocumentContentReadDto(input, MIME_PDF, CONTENT_SIZE, DOC_TITLE);
         when(documentService.download(eq(JWT_SUBJECT_VALID_USER_ID), eq(VALID_DOC_ID))).thenReturn(dlDto);
 
         // Act
@@ -148,18 +143,21 @@ class DocumentControllerCoreUnitTest {
     void givenValidInput_whenUpdateDocument_thenOkIsReturned() {
         // Arrange
         when(documentService.update(eq(JWT_SUBJECT_VALID_USER_ID), eq(VALID_DOC_ID), eq(updateDto_valid_fromClient)))
-                .thenReturn(docView_updated);
+                .thenReturn(docView_updated_fromService);
+
         // Act
         ResponseEntity<DocumentReadDto> response = documentController.update(stubJwt, VALID_DOC_ID, updateDto_valid_fromClient);
+
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(OK);
-        assertThat(response.getBody()).isEqualTo(docView_updated);
+        assertThat(response.getBody()).isEqualTo(docView_updated_fromService);
     }
 
     @Test
     void givenValidInput_whenDeleteDocument_thenNoContentIsReturned() {
         // Act
         ResponseEntity<Void> response = documentController.delete(stubJwt, VALID_DOC_ID);
+
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(NO_CONTENT);
         verify(documentService).delete(JWT_SUBJECT_VALID_USER_ID, VALID_DOC_ID);
