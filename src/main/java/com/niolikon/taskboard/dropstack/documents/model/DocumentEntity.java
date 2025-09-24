@@ -11,6 +11,7 @@ import java.time.Instant;
 @Document(collection = "documents")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString
