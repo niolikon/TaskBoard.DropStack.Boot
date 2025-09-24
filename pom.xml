@@ -11,7 +11,7 @@
 	<groupId>com.github.niolikon</groupId>
 	<artifactId>taskboard-dropstack-boot</artifactId>
     <packaging>jar</packaging>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.1</version>
 	<name>TaskBoard.DropStack.Boot</name>
 	<description>Task Board DropStack (Spring Case Study)</description>
     <url>https://github.com/niolikon/TaskBoard.DropStack.Boot</url>
