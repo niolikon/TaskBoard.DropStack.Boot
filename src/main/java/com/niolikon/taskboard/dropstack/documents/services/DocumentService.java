@@ -1,8 +1,11 @@
 package com.niolikon.taskboard.dropstack.documents.services;
 
+import com.mongodb.client.result.UpdateResult;
 import com.niolikon.taskboard.dropstack.documents.dto.*;
 import com.niolikon.taskboard.dropstack.documents.mappers.DocumentMapper;
+import com.niolikon.taskboard.dropstack.documents.model.DocumentAuditEntity;
 import com.niolikon.taskboard.dropstack.documents.model.DocumentEntity;
+import com.niolikon.taskboard.dropstack.documents.repositories.DocumentAuditRepository;
 import com.niolikon.taskboard.dropstack.documents.repositories.DocumentRepository;
 import com.niolikon.taskboard.dropstack.storage.model.ObjectStat;
 import com.niolikon.taskboard.dropstack.storage.services.IS3StorageService;
@@ -14,12 +17,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static org.springframework.data.mongodb.core.query.Criteria.*;
 
 @Service
 public class DocumentService implements IDocumentService {
@@ -30,18 +39,25 @@ public class DocumentService implements IDocumentService {
     static final String DOCUMENT_CONTENT_DEFAULT_TYPE = "application/octet-stream";
 
     private final DocumentRepository documentRepository;
+    private final DocumentAuditRepository documentAuditRepository;
     private final DocumentMapper documentMapper;
     private final IS3StorageService storage;
     private final String defaultBucket;
 
+    private final MongoTemplate mongoTemplate;
+
     public DocumentService(DocumentRepository documentRepository,
+                           DocumentAuditRepository documentAuditRepository,
                            DocumentMapper documentMapper,
                            IS3StorageService storage,
-                           @Value("${minio.bucket:taskboard-dropstack-docs}") String defaultBucket) {
+                           @Value("${minio.bucket:taskboard-dropstack-docs}") String defaultBucket,
+                           MongoTemplate mongoTemplate) {
         this.documentRepository = documentRepository;
+        this.documentAuditRepository = documentAuditRepository;
         this.documentMapper = documentMapper;
         this.storage = storage;
         this.defaultBucket = defaultBucket;
+        this.mongoTemplate = mongoTemplate;
     }
 
     @Override
@@ -95,7 +111,7 @@ public class DocumentService implements IDocumentService {
 
     @Override
     public DocumentContentReadDto download(String ownerUid, String id) {
-        var doc = documentRepository.findByIdAndOwnerUid(id, ownerUid)
+        DocumentEntity doc = documentRepository.findByIdAndOwnerUid(id, ownerUid)
                 .orElseThrow(() -> new EntityNotFoundRestException(DOCUMENT_NOT_FOUND));
 
         Optional<ObjectStat> statOpt = storage.stat(doc.getBucket(), doc.getObjectKey());
@@ -109,6 +125,51 @@ public class DocumentService implements IDocumentService {
         InputStream in = storage.download(doc.getBucket(), doc.getObjectKey());
 
         return new DocumentContentReadDto(in, contentType, contentLength, filename);
+    }
+
+    @Override
+    public DocumentReadDto checkIn(String ownerUid, String id, DocumentCheckinDto dto) {
+        DocumentEntity doc = documentRepository.findByIdAndOwnerUid(id, ownerUid)
+                .orElseThrow(() -> new EntityNotFoundRestException(DOCUMENT_NOT_FOUND));
+
+        if (!doc.getVersion().equals(dto.getVersion())) {
+            //FIXME: Add 409 conflict management
+            throw new InternalServerErrorRestException(DOCUMENT_NOT_UPDATED); //
+        }
+
+        Instant now = Instant.now();
+        String oldCategory = doc.getCategoryCode();
+
+        // Partial update
+        Query selectDocumentByIdAndVersion = new Query(
+                where("_id").is(id).and("version").is(dto.getVersion()));
+
+        Update setCategoryWithPartialUpdate = new Update()
+                .set("categoryCode", dto.getCategoryCode())
+                .set("checkedInAt", now)
+                .set("checkedInBy", ownerUid)
+                .set("updatedAt", now)
+                .inc("version", 1);
+
+        UpdateResult result = mongoTemplate.updateFirst(selectDocumentByIdAndVersion, setCategoryWithPartialUpdate, DocumentEntity.class);
+        if (result.getModifiedCount() == 0) {
+            //FIXME: Add 409 conflict management
+            throw new InternalServerErrorRestException(DOCUMENT_NOT_UPDATED);
+        }
+
+        DocumentEntity updated = documentRepository.findByIdAndOwnerUid(id, ownerUid)
+                .orElseThrow(() -> new EntityNotFoundRestException(DOCUMENT_NOT_FOUND));
+
+        DocumentAuditEntity audit = new DocumentAuditEntity();
+        audit.setId(new ObjectId().toHexString());
+        audit.setDocumentId(updated.getId());
+        audit.setType("CHECKIN");
+        audit.setAt(now);
+        audit.setBy(ownerUid);
+        audit.setPayload(Map.of("oldCategoryCode", oldCategory, "newCategoryCode", updated.getCategoryCode()));
+        documentAuditRepository.save(audit);
+
+        return documentMapper.toReadDto(updated);
     }
 
     @Override
@@ -128,6 +189,7 @@ public class DocumentService implements IDocumentService {
             DocumentEntity saved = documentRepository.save(existing);
             return documentMapper.toReadDto(saved);
         } catch (OptimisticLockingFailureException e) {
+            //FIXME: Add 409 conflict management
             throw new InternalServerErrorRestException(DOCUMENT_NOT_UPDATED);
         }
     }

@@ -4,6 +4,7 @@ import com.niolikon.taskboard.dropstack.documents.dto.DocumentContentReadDto;
 import com.niolikon.taskboard.dropstack.documents.dto.DocumentReadDto;
 import com.niolikon.taskboard.dropstack.documents.mappers.DocumentMapper;
 import com.niolikon.taskboard.dropstack.documents.model.DocumentEntity;
+import com.niolikon.taskboard.dropstack.documents.repositories.DocumentAuditRepository;
 import com.niolikon.taskboard.dropstack.documents.repositories.DocumentRepository;
 import com.niolikon.taskboard.dropstack.storage.services.IS3StorageService;
 import com.niolikon.taskboard.framework.data.dto.PageResponse;
@@ -18,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.mongodb.core.MongoTemplate;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -36,15 +38,20 @@ class DocumentServiceCoreUnitTest {
     @Mock
     private DocumentRepository documentRepository;
     @Mock
+    private DocumentAuditRepository documentAuditRepository;
+    @Mock
     private DocumentMapper documentMapper;
     @Mock
     private IS3StorageService storage;
+    @Mock
+    private MongoTemplate mongoTemplate;
 
     private DocumentService documentService;
 
     @BeforeEach
     void setUp() {
-        documentService = new DocumentService(documentRepository, documentMapper, storage, DEFAULT_BUCKET_FOR_TESTS);
+        documentService = new DocumentService(documentRepository, documentAuditRepository, documentMapper,
+                                              storage, DEFAULT_BUCKET_FOR_TESTS, mongoTemplate);
     }
 
     @Test

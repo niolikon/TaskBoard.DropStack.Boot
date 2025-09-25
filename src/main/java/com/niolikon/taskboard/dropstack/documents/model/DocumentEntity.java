@@ -59,4 +59,12 @@ public class DocumentEntity {
     @EqualsAndHashCode.Include
     @Setter
     private String ownerUid;
+
+    @Field("categoryCode")
+    @EqualsAndHashCode.Exclude
+    private String categoryCode;
+
+    @Field("checkedInAt")
+    @EqualsAndHashCode.Exclude
+    private Instant checkedInAt;
 }
