@@ -10,6 +10,7 @@ public class DocumentApiPaths {
     public static final String MAPPING_PATH_DOCUMENT_BASE = "/api/Documents";
     public static final String MAPPING_PATH_DOCUMENT_BY_ID = "/{" + PATH_VARIABLE_DOCUMENT_ID + "}";
     public static final String MAPPING_PATH_DOCUMENT_CONTENT_BY_ID = "/{" + PATH_VARIABLE_DOCUMENT_ID + "}/content";
+    public static final String MAPPING_PATH_DOCUMENT_CHECKIN_BY_ID = "/{" + PATH_VARIABLE_DOCUMENT_ID + "}/checkin";
 
     public static final String API_PATH_DOCUMENT_BASE = MAPPING_PATH_DOCUMENT_BASE;
     public static final String API_PATH_DOCUMENT_BY_ID = MAPPING_PATH_DOCUMENT_BASE + MAPPING_PATH_DOCUMENT_BY_ID;
