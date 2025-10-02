@@ -8,8 +8,8 @@ import com.niolikon.taskboard.dropstack.documents.repositories.DocumentAuditRepo
 import com.niolikon.taskboard.dropstack.documents.repositories.DocumentRepository;
 import com.niolikon.taskboard.dropstack.storage.services.IS3StorageService;
 import com.niolikon.taskboard.framework.data.dto.PageResponse;
+import com.niolikon.taskboard.framework.exceptions.rest.client.ConflictRestException;
 import com.niolikon.taskboard.framework.exceptions.rest.client.EntityNotFoundRestException;
-import com.niolikon.taskboard.framework.exceptions.rest.server.InternalServerErrorRestException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -261,7 +261,7 @@ class DocumentServiceCoreUnitTest {
     }
 
     @Test
-    void givenOptimisticLockingFailure_whenUpdate_thenThrowsInternalServerError() {
+    void givenOptimisticLockingFailure_whenUpdate_thenThrowsConflictRestException() {
         // Arrange
         when(documentRepository.findByIdAndOwnerUid(VALID_EXISTENT_DOC_ID, VALID_OWNER_UID))
                 .thenReturn(Optional.of(doc_existing_fromRepository));
@@ -270,7 +270,7 @@ class DocumentServiceCoreUnitTest {
 
         // Act & Assert
         assertThatThrownBy(() -> documentService.update(VALID_OWNER_UID, VALID_EXISTENT_DOC_ID, docUpdate_valid_fromClient))
-                .isInstanceOf(InternalServerErrorRestException.class)
+                .isInstanceOf(ConflictRestException.class)
                 .hasMessageContaining(DocumentService.DOCUMENT_NOT_UPDATED);
 
         verify(documentRepository).findByIdAndOwnerUid(VALID_EXISTENT_DOC_ID, VALID_OWNER_UID);
