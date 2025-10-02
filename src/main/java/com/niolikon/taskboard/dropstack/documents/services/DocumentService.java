@@ -10,8 +10,8 @@ import com.niolikon.taskboard.dropstack.documents.repositories.DocumentRepositor
 import com.niolikon.taskboard.dropstack.storage.model.ObjectStat;
 import com.niolikon.taskboard.dropstack.storage.services.IS3StorageService;
 import com.niolikon.taskboard.framework.data.dto.PageResponse;
+import com.niolikon.taskboard.framework.exceptions.rest.client.ConflictRestException;
 import com.niolikon.taskboard.framework.exceptions.rest.client.EntityNotFoundRestException;
-import com.niolikon.taskboard.framework.exceptions.rest.server.InternalServerErrorRestException;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.springframework.data.mongodb.core.query.Criteria.*;
+import static org.springframework.data.mongodb.core.query.Criteria.where;
 
 @Service
 public class DocumentService implements IDocumentService {
@@ -133,8 +133,7 @@ public class DocumentService implements IDocumentService {
                 .orElseThrow(() -> new EntityNotFoundRestException(DOCUMENT_NOT_FOUND));
 
         if (!doc.getVersion().equals(dto.getVersion())) {
-            //FIXME: Add 409 conflict management
-            throw new InternalServerErrorRestException(DOCUMENT_NOT_UPDATED); //
+            throw new ConflictRestException(DOCUMENT_NOT_UPDATED);
         }
 
         Instant now = Instant.now();
@@ -153,8 +152,7 @@ public class DocumentService implements IDocumentService {
 
         UpdateResult result = mongoTemplate.updateFirst(selectDocumentByIdAndVersion, setCategoryWithPartialUpdate, DocumentEntity.class);
         if (result.getModifiedCount() == 0) {
-            //FIXME: Add 409 conflict management
-            throw new InternalServerErrorRestException(DOCUMENT_NOT_UPDATED);
+            throw new ConflictRestException(DOCUMENT_NOT_UPDATED);
         }
 
         DocumentEntity updated = documentRepository.findByIdAndOwnerUid(id, ownerUid)
@@ -189,8 +187,7 @@ public class DocumentService implements IDocumentService {
             DocumentEntity saved = documentRepository.save(existing);
             return documentMapper.toReadDto(saved);
         } catch (OptimisticLockingFailureException e) {
-            //FIXME: Add 409 conflict management
-            throw new InternalServerErrorRestException(DOCUMENT_NOT_UPDATED);
+            throw new ConflictRestException(DOCUMENT_NOT_UPDATED);
         }
     }
 
