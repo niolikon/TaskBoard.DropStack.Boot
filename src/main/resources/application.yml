@@ -22,6 +22,10 @@ spring:
       max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:100MB}
       enabled: true
 
+taskboard:
+  exceptions:
+    handler:
+      enabled: true
 
 minio:
   endpoint: ${MINIO_ENDPOINT:http://taskboard-dropstack-minio:9000}

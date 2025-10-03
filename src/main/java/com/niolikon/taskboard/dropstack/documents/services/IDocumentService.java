@@ -4,8 +4,6 @@ import com.niolikon.taskboard.dropstack.documents.dto.*;
 import com.niolikon.taskboard.framework.data.dto.PageResponse;
 import org.springframework.data.domain.Pageable;
 
-import java.util.Optional;
-
 public interface IDocumentService {
 
     DocumentReadDto create(String ownerUid, DocumentCreateMetadataDto metadata, DocumentCreateContentDto content);
@@ -15,6 +13,8 @@ public interface IDocumentService {
     DocumentReadDto read(String ownerUid, String id);
 
     DocumentContentReadDto download(String ownerUid, String id);
+
+    DocumentReadDto checkIn(String ownerUid, String id, DocumentCheckinDto dto);
 
     DocumentReadDto update(String ownerUid, String id, DocumentUpdateDto dto);
 

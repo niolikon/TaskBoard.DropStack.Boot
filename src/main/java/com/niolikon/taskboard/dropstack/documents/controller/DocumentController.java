@@ -111,6 +111,15 @@ public class DocumentController {
         return builder.body(body);
     }
 
+    @PostMapping(MAPPING_PATH_DOCUMENT_CHECKIN_BY_ID)
+    public ResponseEntity<DocumentReadDto> checkIn(@AuthenticationPrincipal Jwt jwt,
+                                                   @PathVariable(PATH_VARIABLE_DOCUMENT_ID) String id,
+                                                   @Valid @RequestBody DocumentCheckinDto dto) {
+        String ownerUid = jwt.getSubject();
+        DocumentReadDto updated = documentService.checkIn(ownerUid, id, dto);
+        return ok(updated);
+    }
+
     @PutMapping(MAPPING_PATH_DOCUMENT_BY_ID)
     public ResponseEntity<DocumentReadDto> update(@AuthenticationPrincipal Jwt jwt,
                                                   @PathVariable(PATH_VARIABLE_DOCUMENT_ID) String id,

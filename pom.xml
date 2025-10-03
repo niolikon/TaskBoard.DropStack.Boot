@@ -11,7 +11,7 @@
 	<groupId>com.github.niolikon</groupId>
 	<artifactId>taskboard-dropstack-boot</artifactId>
     <packaging>jar</packaging>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.1</version>
 	<name>TaskBoard.DropStack.Boot</name>
 	<description>Task Board DropStack (Spring Case Study)</description>
     <url>https://github.com/niolikon/TaskBoard.DropStack.Boot</url>
@@ -37,8 +37,9 @@
         <maven.surefire.version>3.1.2</maven.surefire.version>
         <maven.failsafe.version>3.1.2</maven.failsafe.version>
         <software.amazon.awssdk.version>2.31.77</software.amazon.awssdk.version>
-        <org.projectlombok.version>1.18.38</org.projectlombok.version>
         <org.mapstruct.version>1.6.3</org.mapstruct.version>
+        <org.projectlombok.version>1.18.38</org.projectlombok.version>
+        <org.testcontainers.mongo.version>1.21.3</org.testcontainers.mongo.version>
 	</properties>
 	<dependencies>
         <dependency>
@@ -86,7 +87,7 @@
         <dependency>
             <groupId>com.github.niolikon</groupId>
             <artifactId>TaskBoard.Framework.Boot</artifactId>
-            <version>0.0.3</version>
+            <version>0.1.2</version>
         </dependency>
 
         <dependency>
@@ -112,6 +113,17 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>mongodb</artifactId>
+            <version>${org.testcontainers.mongo.version}</version>
+            <scope>test</scope>
+        </dependency>
 	</dependencies>
 
 	<build>
